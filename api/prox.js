@@ -1,7 +1,18 @@
 export default async function handler(req, res) {
   try {
-    const { url } = req.query;
-    if (!url) return res.status(400).send("Missing ?url=");
+    let { url } = req.query;
+
+    if (url) {
+      url = decodeURIComponent(url);
+    } else if (req.query._target) {
+      url = decodeURIComponent(req.query._target);
+    } else {
+      if (!req.headers.referer) {
+        return res.status(400).send("Missing ?url=");
+      }
+      const referer = new URL(req.headers.referer);
+      url = referer.origin + referer.pathname + "?" + new URLSearchParams(req.query).toString();
+    }
 
     const target = new URL(url);
 
