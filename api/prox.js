@@ -25,7 +25,7 @@ export default async function handler(req, res) {
       const absolute = new URL(location, target).toString();
       res.setHeader(
         "location",
-        `/api/proxy?url=${encodeURIComponent(absolute)}`
+        `/api/prox?url=${encodeURIComponent(absolute)}`
       );
       return res.end();
     }
