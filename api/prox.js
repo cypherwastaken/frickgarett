@@ -1,4 +1,3 @@
-// /api/prox.js
 export default async function handler(req, res) {
   try {
     const { url } = req.query;
@@ -7,14 +6,12 @@ export default async function handler(req, res) {
     const target = new URL(url);
 
     const response = await fetch(target.toString(), {
-      redirect: "manual", // Important to handle redirects ourselves
+      redirect: "manual",
     });
 
-    // Handle HTTP redirects
     const location = response.headers.get("location");
     if (location) {
       const absolute = new URL(location, target).toString();
-      // Rewrite redirect to go through the proxy
       res.setHeader(
         "location",
         `/api/prox?url=${encodeURIComponent(absolute)}`
@@ -24,7 +21,6 @@ export default async function handler(req, res) {
 
     const contentType = response.headers.get("content-type") || "";
 
-    // Rewrite HTML links (href/src) so they go through proxy
     if (contentType.includes("text/html")) {
       let html = await response.text();
 
@@ -32,9 +28,56 @@ export default async function handler(req, res) {
         /(src|href)=["']([^"']+)["']/gi,
         (match, attr, link) => {
           try {
-            // Convert relative URLs to absolute
             const absolute = new URL(link, target).toString();
             return `${attr}="/api/prox?url=${encodeURIComponent(absolute)}"`;
+          } catch {
+            return match;
+          }
+        }
+      );
+
+      html = html.replace(
+        /<form[^>]+action=["']([^"']+)["']/gi,
+        (match, action) => {
+          try {
+            const absolute = new URL(action, target).toString();
+            return match.replace(action, `/api/prox?url=${encodeURIComponent(absolute)}`);
+          } catch {
+            return match;
+          }
+        }
+      );
+
+      html = html.replace(
+        /<meta\s+http-equiv=["']refresh["']\s+content=["']\d+;URL=([^"']+)["']/gi,
+        (match, url) => {
+          try {
+            const absolute = new URL(url, target).toString();
+            return match.replace(url, `/api/prox?url=${encodeURIComponent(absolute)}`);
+          } catch {
+            return match;
+          }
+        }
+      );
+
+      html = html.replace(
+        /(window\.location|location\.href)\s*=\s*["']([^"']+)["']/gi,
+        (match, prop, link) => {
+          try {
+            const absolute = new URL(link, target).toString();
+            return `${prop}="/api/prox?url=${encodeURIComponent(absolute)}"`;
+          } catch {
+            return match;
+          }
+        }
+      );
+
+      html = html.replace(
+        /fetch\(["']([^"']+)["']/gi,
+        (match, link) => {
+          try {
+            const absolute = new URL(link, target).toString();
+            return `fetch("/api/prox?url=${encodeURIComponent(absolute)}"`;
           } catch {
             return match;
           }
@@ -45,7 +88,6 @@ export default async function handler(req, res) {
       return res.send(html);
     }
 
-    // Otherwise (JS/CSS/images) just forward
     response.headers.forEach((value, key) => {
       if (!["content-encoding", "content-length", "location"].includes(key.toLowerCase())) {
         res.setHeader(key, value);
