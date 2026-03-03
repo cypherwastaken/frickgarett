@@ -13,14 +13,29 @@ export default async function handler(req, res) {
       return res.status(400).send("Invalid URL");
     }
 
-    const response = await fetch(target.toString());
+    const response = await fetch(target.toString(), {
+      redirect: "manual", // IMPORTANT
+    });
 
-    // Copy status
     res.status(response.status);
 
-    // Copy headers safely
+    // Rewrite redirect location
+    const location = response.headers.get("location");
+    if (location) {
+      const absolute = new URL(location, target).toString();
+      res.setHeader(
+        "location",
+        `/api/proxy?url=${encodeURIComponent(absolute)}`
+      );
+      return res.end();
+    }
+
+    // Copy other headers
     response.headers.forEach((value, key) => {
-      if (key.toLowerCase() !== "content-encoding") {
+      if (
+        key.toLowerCase() !== "content-encoding" &&
+        key.toLowerCase() !== "location"
+      ) {
         res.setHeader(key, value);
       }
     });
