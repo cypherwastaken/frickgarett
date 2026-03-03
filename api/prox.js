@@ -1,7 +1,15 @@
 export const runtime = "edge";
 
-export default async function handler(req) {
-  const { searchParams } = new URL(req.url);
+export async function GET(request) {
+  return proxy(request);
+}
+
+export async function POST(request) {
+  return proxy(request);
+}
+
+async function proxy(request) {
+  const { searchParams } = new URL(request.url);
   const target = searchParams.get("url");
 
   if (!target) {
@@ -10,20 +18,22 @@ export default async function handler(req) {
 
   const targetUrl = new URL(target);
 
-  // Clone headers
-  const headers = new Headers(req.headers);
+  const headers = new Headers(request.headers);
   headers.delete("host");
 
   const response = await fetch(targetUrl.toString(), {
-    method: req.method,
+    method: request.method,
     headers,
-    body: req.method !== "GET" && req.method !== "HEAD" ? req.body : undefined,
+    body:
+      request.method !== "GET" && request.method !== "HEAD"
+        ? request.body
+        : undefined,
     redirect: "manual",
   });
 
   const responseHeaders = new Headers(response.headers);
 
-  // Rewrite redirects to go back through proxy
+  // Fix redirects
   const location = responseHeaders.get("location");
   if (location) {
     const absolute = new URL(location, targetUrl).toString();
@@ -33,31 +43,6 @@ export default async function handler(req) {
     );
   }
 
-  const contentType = responseHeaders.get("content-type") || "";
-
-  // If HTML, rewrite asset URLs
-  if (contentType.includes("text/html")) {
-    let html = await response.text();
-
-    html = html.replace(
-      /(src|href)=["']([^"']+)["']/gi,
-      (match, attr, url) => {
-        try {
-          const absoluteUrl = new URL(url, targetUrl).toString();
-          return `${attr}="/api/proxy?url=${encodeURIComponent(absoluteUrl)}"`;
-        } catch {
-          return match;
-        }
-      }
-    );
-
-    return new Response(html, {
-      status: response.status,
-      headers: responseHeaders,
-    });
-  }
-
-  // For JS, CSS, images, fonts, etc → just stream
   return new Response(response.body, {
     status: response.status,
     headers: responseHeaders,
