@@ -1,41 +1,53 @@
+// /api/prox.js
 export default async function handler(req, res) {
   try {
     const { url } = req.query;
+    if (!url) return res.status(400).send("Missing ?url=");
 
-    if (!url) {
-      return res.status(400).send("Missing ?url=");
-    }
-
-    let target;
-    try {
-      target = new URL(url);
-    } catch {
-      return res.status(400).send("Invalid URL");
-    }
+    const target = new URL(url);
 
     const response = await fetch(target.toString(), {
-      redirect: "manual", // IMPORTANT
+      redirect: "manual", // Important to handle redirects ourselves
     });
 
-    res.status(response.status);
-
-    // Rewrite redirect location
+    // Handle HTTP redirects
     const location = response.headers.get("location");
     if (location) {
       const absolute = new URL(location, target).toString();
+      // Rewrite redirect to go through the proxy
       res.setHeader(
         "location",
         `/api/prox?url=${encodeURIComponent(absolute)}`
       );
-      return res.end();
+      return res.status(response.status).end();
     }
 
-    // Copy other headers
+    const contentType = response.headers.get("content-type") || "";
+
+    // Rewrite HTML links (href/src) so they go through proxy
+    if (contentType.includes("text/html")) {
+      let html = await response.text();
+
+      html = html.replace(
+        /(src|href)=["']([^"']+)["']/gi,
+        (match, attr, link) => {
+          try {
+            // Convert relative URLs to absolute
+            const absolute = new URL(link, target).toString();
+            return `${attr}="/api/prox?url=${encodeURIComponent(absolute)}"`;
+          } catch {
+            return match;
+          }
+        }
+      );
+
+      res.setHeader("content-type", "text/html");
+      return res.send(html);
+    }
+
+    // Otherwise (JS/CSS/images) just forward
     response.headers.forEach((value, key) => {
-      if (
-        key.toLowerCase() !== "content-encoding" &&
-        key.toLowerCase() !== "location"
-      ) {
+      if (!["content-encoding", "content-length", "location"].includes(key.toLowerCase())) {
         res.setHeader(key, value);
       }
     });
