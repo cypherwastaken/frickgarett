@@ -1,50 +1,35 @@
-export const runtime = "edge";
+export default async function handler(req, res) {
+  try {
+    const { url } = req.query;
 
-export async function GET(request) {
-  return proxy(request);
-}
+    if (!url) {
+      return res.status(400).send("Missing ?url=");
+    }
 
-export async function POST(request) {
-  return proxy(request);
-}
+    let target;
+    try {
+      target = new URL(url);
+    } catch {
+      return res.status(400).send("Invalid URL");
+    }
 
-async function proxy(request) {
-  const { searchParams } = new URL(request.url);
-  const target = searchParams.get("url");
+    const response = await fetch(target.toString());
 
-  if (!target) {
-    return new Response("Missing ?url=", { status: 400 });
+    // Copy status
+    res.status(response.status);
+
+    // Copy headers safely
+    response.headers.forEach((value, key) => {
+      if (key.toLowerCase() !== "content-encoding") {
+        res.setHeader(key, value);
+      }
+    });
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    res.send(buffer);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Proxy failed: " + err.message);
   }
-
-  const targetUrl = new URL(target);
-
-  const headers = new Headers(request.headers);
-  headers.delete("host");
-
-  const response = await fetch(targetUrl.toString(), {
-    method: request.method,
-    headers,
-    body:
-      request.method !== "GET" && request.method !== "HEAD"
-        ? request.body
-        : undefined,
-    redirect: "manual",
-  });
-
-  const responseHeaders = new Headers(response.headers);
-
-  // Fix redirects
-  const location = responseHeaders.get("location");
-  if (location) {
-    const absolute = new URL(location, targetUrl).toString();
-    responseHeaders.set(
-      "location",
-      `/api/proxy?url=${encodeURIComponent(absolute)}`
-    );
-  }
-
-  return new Response(response.body, {
-    status: response.status,
-    headers: responseHeaders,
-  });
 }
