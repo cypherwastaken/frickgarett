@@ -122,6 +122,46 @@ export default async function handler(req, res) {
           `url("${rewriteUrl(link)}")`
       );
 
+      const proxyScript = `
+<script>
+(function() {
+  const prox = (url) => {
+    try {
+      if (!url) return url;
+      if (url.startsWith("data:") || url.startsWith("javascript:")) return url;
+      return "/api/prox?url=" + encodeURIComponent(new URL(url, window.location.href));
+    } catch {
+      return url;
+    }
+  };
+  const origFetch = window.fetch;
+  window.fetch = function(input, init) {
+    if (typeof input === "string") {
+      input = prox(input);
+    } else if (input && input.url) {
+      input = new Request(prox(input.url), input);
+    }
+    return origFetch(input, init);
+  };
+  const origOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+    return origOpen.call(this, method, prox(url), ...rest);
+  };
+  const origPushState = history.pushState;
+  history.pushState = function(state, title, url) {
+    if (url) url = prox(url);
+    return origPushState.call(this, state, title, url);
+  };
+  const origAssign = window.location.assign;
+  window.location.assign = function(url) {
+    origAssign.call(window.location, prox(url));
+  };
+})();
+</script>
+`;
+
+      html = html.replace("<head>", "<head>" + proxyScript);
+
       res.setHeader("content-type", "text/html");
       return res.send(html);
     }
