@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FrickGarett</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #f5f5f5;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 300px;
+    }
+
+    input, select, button {
+      padding: 10px;
+      font-size: 16px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    button {
+      background-color: #0078d4;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #005a9e;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <input type="text" id="searchQuery" placeholder="Search query..." />
+
+    <div style="display:flex; gap:4px;">
+      <select id="protocol">
+        <option value="https">https://</option>
+        <option value="http">http://</option>
+      </select>
+      <input type="text" id="website" placeholder="example.com" />
+    </div>
+
+    <button id="goButton">Go</button>
+  </div>
+
+  <script>
+    const goButton = document.getElementById('goButton');
+    goButton.addEventListener('click', () => {
+      const query = encodeURIComponent(document.getElementById('searchQuery').value.trim());
+      const protocol = document.getElementById('protocol').value;
+      const website = document.getElementById('website').value.trim();
+
+      if (query) {
+        const searchUrl = `https://search.brave.com/search?q=${query}&source=brave.com&lang=en`;
+        window.location.href = `/api/prox?url=${encodeURIComponent(searchUrl)}`;
+      } else if (website) {
+        const targetUrl = `${protocol}://${website}`;
+        window.location.href = `/api/prox?url=${encodeURIComponent(targetUrl)}`;
+      } else {
+        alert('Enter a search query or website!');
+      }
+    });
+  </script>
+</body>
+</html>
