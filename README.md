@@ -1,2 +1,2 @@
 # FrickGarett 
-Click [here](./DOCUMENTS.md) to view the docs
+Click [here](./DOCUMENTATION.md) to view the docs
