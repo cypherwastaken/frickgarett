@@ -1,3 +1,5 @@
+import { rewriteJS } from "./rewriter.js"
+
 export default async function handler(req, res) {
   try {
     let { url } = req.query;
@@ -191,6 +193,13 @@ origAssign.call(window.location,prox(url));
 
       res.setHeader("content-type", "text/html");
       return res.send(html);
+    }
+
+    if (contentType.includes("javascript")) {
+      let js = await response.text();
+      js = rewriteJS(js);
+      res.setHeader("content-type", "application/javascript");
+      return res.send(js);
     }
 
     if (contentType.includes("text/css")) {
