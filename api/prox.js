@@ -76,6 +76,12 @@ export default async function handler(req, res) {
       try {
         if (!link) return link;
         if (link.startsWith("data:") || link.startsWith("javascript:")) return link;
+
+        if (link.startsWith("/")) {
+          const absolute = target.origin + link;
+          return `/api/prox?url=${encodeURIComponent(absolute)}`;
+        }
+
         const absolute = new URL(link, target.href).href;
         return `/api/prox?url=${encodeURIComponent(absolute)}`;
       } catch {
